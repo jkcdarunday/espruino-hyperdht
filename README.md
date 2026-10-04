@@ -1,5 +1,7 @@
 # Espruino HyperDHT for small ESP32 devices
 
+![Agent Built — AI-built](https://img.shields.io/badge/Agent-Built-informational)
+
 A direct HyperDHT client and single-connection server for Espruino. The ESP32 discovers a peer
 by its HyperDHT public key, performs the Noise handshake, and sends/receives
 bytes over the encrypted UDX stream. There is **no Node.js gateway** between the
