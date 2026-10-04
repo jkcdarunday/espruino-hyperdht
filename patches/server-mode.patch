@@ -1,0 +1,67 @@
+--- a/src/server.cpp
++++ b/src/server.cpp
+@@ -447,7 +447,7 @@
+     // firewall decision is still in flight (pending_handshakes_) or whose
+     // session is live must survive the sweep, or a duplicate would spawn
+     // a second session mid-window.
+-    if (handshake_dedup_.size() > 512 && handshake_dedup_.size() > connections_.size() * 2) {
++    if (handshake_dedup_.size() > 2 && handshake_dedup_.size() > connections_.size() * 2) {
+         for (auto it = handshake_dedup_.begin(); it != handshake_dedup_.end();) {
+             if (connections_.count(it->second) ||
+                 pending_handshakes_.count(it->second)) {
+@@ -472,6 +472,9 @@
+         if (pit != pending_handshakes_.end()) {
+             DHT_LOG("  [server] Dedup: queueing duplicate on pending id=%u\n",
+                     dedup_it->second);
++#ifdef HYPERDHT_SMALL_CLIENT
++            if (pit->second.size() >= 4) return;
++#endif
+             pit->second.push_back(std::move(reply_fn));
+             return;
+         }
+@@ -494,6 +497,9 @@
+         handshake_dedup_.erase(dedup_it);
+     }
+ 
++#ifdef HYPERDHT_SMALL_CLIENT
++    if (connections_.size() + pending_handshakes_.size() >= 1) return;
++#endif
+     uint32_t hp_id = next_hp_id_++;
+ 
+     // Get our addresses and relay info.
+@@ -698,7 +704,12 @@
+     };
+ 
+     // H23: cap concurrent pending handshakes to prevent resource exhaustion
+-    constexpr size_t MAX_PENDING_HANDSHAKES = 256;
++    constexpr size_t MAX_PENDING_HANDSHAKES =
++#ifdef HYPERDHT_SMALL_CLIENT
++        1;
++#else
++        256;
++#endif
+     if (connections_.size() >= MAX_PENDING_HANDSHAKES) {
+         drop_dedup();
+         return;
+@@ -719,6 +730,10 @@
+     // The session is stored ONLY so duplicate noise bytes keep deduping
+     // onto it, and the clear-wait timer reaps it (JS _clearLater).
+     if (conn.firewalled) {
++#ifdef HYPERDHT_SMALL_CLIENT
++        drop_dedup();
++        return;
++#endif
+         DHT_LOG("  [server] Firewall rejected handshake (id=%u) — silent\n", hp_id);
+         conn.created_at = uv_now(socket_.loop());
+         connections_[hp_id] =
+--- a/src/rpc.cpp
++++ b/src/rpc.cpp
+@@ -767,7 +767,7 @@
+ }
+ 
+ void RpcSocket::send_probe(const compact::Ipv4Address& to) {
+-    static const std::vector<uint8_t> probe_byte = {0x00};
++    const std::vector<uint8_t> probe_byte = {0x00};
+     udp_send(probe_byte, to);
+ }
+ 

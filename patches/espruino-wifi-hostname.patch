@@ -1,0 +1,27 @@
+--- a/libs/network/esp32/jswrap_esp32_network.c
++++ b/libs/network/esp32/jswrap_esp32_network.c
+@@ -521,13 +521,13 @@
+     jsDebug(DBG_INFO, "Wifi: About to emit connect!\n");
+     sendWifiEvent("#onconnected", jsDetails);
+     // start mDNS
+-    const char * hostname;
++    const char * hostname = NULL;
+ #if ESP_IDF_VERSION_MAJOR>=5
+     esp_err_t err = esp_netif_get_hostname(sta_netif, &hostname);
+ #else
+     esp_err_t err = tcpip_adapter_get_hostname(TCPIP_ADAPTER_IF_STA, &hostname);
+ #endif
+-    if (hostname && hostname[0] != 0) {
++    if (err == ESP_OK && hostname && hostname[0] != 0) {
+       startMDNS(hostname);
+     }
+   } else
+@@ -605,7 +605,7 @@
+   ESP_ERROR_CHECK(esp_netif_init());
+   ESP_ERROR_CHECK(esp_event_loop_create_default());
+   esp_netif_create_default_wifi_ap();
+-  esp_netif_create_default_wifi_sta();
++  sta_netif = esp_netif_create_default_wifi_sta();
+ #else
+   tcpip_adapter_init();
+   ESP_ERROR_CHECK( esp_event_loop_init(event_handler, NULL));

@@ -1,0 +1,122 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> espruino-hyperdht-client@0.3.0 test
+> node --test test/interop.test.js
+
+MEMORY open live=22750 peak=27625 largest=12408 allocations=250
+MEMORY open live=23022 peak=28187 largest=12408 allocations=634
+MEMORY open live=23022 peak=28187 largest=12408 allocations=1017
+MEMORY destroyed live=0 peak=28187 largest=12408 allocations=1253
+INTEROP_OK: 3 x 32769 binary bytes, key identity, backpressure, teardown
+✔ actual Espruino native client exchanges all byte values with original HyperDHT (5416.681377ms)
+MEMORY destroyed live=0 peak=19890 largest=12408 allocations=82
+INTEROP_OK: timeout/recreate
+✔ bootstrap timeout destroys the client and permits a new instance (334.546143ms)
+MEMORY open live=28048 peak=30273 largest=12408 allocations=252
+MEMORY destroyed live=0 peak=35294 largest=12408 allocations=262
+INTEROP_OK: 4KiB peer write and remote close
+✔ maximum sensor frame is delivered in bounded chunks and peer close is handled (306.873947ms)
+MEMORY destroyed live=0 peak=23865 largest=12408 allocations=136
+MEMORY ready live=19354 peak=23865 largest=12408 allocations=231
+MEMORY destroyed live=0 peak=23865 largest=12408 allocations=272
+INTEROP_OK: cancelled connect and recreate
+✔ cancel a pending connection, then construct another client (206.490617ms)
+MEMORY open live=22750 peak=27625 largest=12408 allocations=250
+MEMORY destroyed live=0 peak=27625 largest=12408 allocations=250
+MEMORY ready live=19354 peak=27625 largest=12408 allocations=345
+MEMORY open live=22750 peak=27625 largest=12408 allocations=500
+MEMORY destroyed live=0 peak=27625 largest=12408 allocations=500
+MEMORY ready live=19354 peak=27625 largest=12408 allocations=595
+MEMORY open live=22750 peak=27625 largest=12408 allocations=750
+MEMORY destroyed live=0 peak=27625 largest=12408 allocations=750
+MEMORY ready live=19354 peak=27625 largest=12408 allocations=845
+MEMORY open live=22750 peak=27625 largest=12408 allocations=1000
+MEMORY destroyed live=0 peak=27625 largest=12408 allocations=1000
+MEMORY ready live=19354 peak=27625 largest=12408 allocations=1095
+MEMORY open live=22750 peak=27625 largest=12408 allocations=1250
+MEMORY destroyed live=0 peak=27625 largest=12408 allocations=1250
+MEMORY ready live=19354 peak=27625 largest=12408 allocations=1345
+MEMORY open live=22750 peak=27625 largest=12408 allocations=1500
+MEMORY destroyed live=0 peak=27625 largest=12408 allocations=1500
+MEMORY ready live=19354 peak=27625 largest=12408 allocations=1595
+MEMORY open live=22750 peak=27625 largest=12408 allocations=1750
+MEMORY destroyed live=0 peak=27625 largest=12408 allocations=1750
+MEMORY ready live=19354 peak=27625 largest=12408 allocations=1845
+MEMORY open live=22750 peak=27625 largest=12408 allocations=2000
+MEMORY destroyed live=0 peak=27625 largest=12408 allocations=2000
+MEMORY ready live=19354 peak=27625 largest=12408 allocations=2095
+MEMORY open live=22750 peak=27625 largest=12408 allocations=2250
+MEMORY destroyed live=0 peak=27625 largest=12408 allocations=2250
+MEMORY ready live=19354 peak=27625 largest=12408 allocations=2345
+MEMORY open live=22750 peak=27625 largest=12408 allocations=2500
+MEMORY destroyed live=0 peak=27625 largest=12408 allocations=2500
+MEMORY ready live=19354 peak=27625 largest=12408 allocations=2595
+MEMORY open live=22750 peak=27625 largest=12408 allocations=2750
+MEMORY destroyed live=0 peak=27625 largest=12408 allocations=2750
+MEMORY ready live=19354 peak=27625 largest=12408 allocations=2845
+MEMORY open live=22750 peak=27625 largest=12408 allocations=3000
+MEMORY destroyed live=0 peak=27625 largest=12408 allocations=3000
+MEMORY ready live=19354 peak=27625 largest=12408 allocations=3095
+MEMORY open live=22750 peak=27625 largest=12408 allocations=3250
+MEMORY destroyed live=0 peak=27625 largest=12408 allocations=3250
+MEMORY ready live=19354 peak=27625 largest=12408 allocations=3345
+MEMORY open live=22750 peak=27625 largest=12408 allocations=3500
+MEMORY destroyed live=0 peak=27625 largest=12408 allocations=3500
+MEMORY ready live=19354 peak=27625 largest=12408 allocations=3595
+MEMORY open live=22750 peak=27625 largest=12408 allocations=3750
+MEMORY destroyed live=0 peak=27625 largest=12408 allocations=3750
+MEMORY ready live=19354 peak=27625 largest=12408 allocations=3845
+MEMORY open live=22750 peak=27625 largest=12408 allocations=4000
+MEMORY destroyed live=0 peak=27625 largest=12408 allocations=4000
+MEMORY ready live=19354 peak=27625 largest=12408 allocations=4095
+MEMORY open live=22750 peak=27625 largest=12408 allocations=4250
+MEMORY destroyed live=0 peak=27625 largest=12408 allocations=4250
+MEMORY ready live=19354 peak=27625 largest=12408 allocations=4345
+MEMORY open live=22750 peak=27625 largest=12408 allocations=4500
+MEMORY destroyed live=0 peak=27625 largest=12408 allocations=4500
+MEMORY ready live=19354 peak=27625 largest=12408 allocations=4595
+MEMORY open live=22750 peak=27625 largest=12408 allocations=4750
+MEMORY destroyed live=0 peak=27625 largest=12408 allocations=4750
+MEMORY ready live=19354 peak=27625 largest=12408 allocations=4845
+MEMORY open live=22750 peak=27625 largest=12408 allocations=5000
+MEMORY destroyed live=0 peak=27625 largest=12408 allocations=5000
+INTEROP_OK: 20 active stream abort/recreate cycles
+✔ destroy aborts an open stream without waiting for peer shutdown (1317.189404ms)
+MEMORY open live=28048 peak=30273 largest=12408 allocations=252
+MEMORY destroyed live=0 peak=30273 largest=12408 allocations=252
+INTEROP_OK: oversized frame rejected before delivery
+✔ oversized authenticated peer frame is rejected and client closes cleanly (205.41231ms)
+MEMORY open live=30524 peak=36916 largest=12408 allocations=442
+MEMORY destroyed live=0 peak=36916 largest=12408 allocations=453
+INTEROP_OK: sensor data after holepunch negotiation
+✔ sensor stream negotiates hole punching with an original HyperDHT server (255.540077ms)
+MEMORY open live=36136 peak=41714 largest=12408 allocations=255
+MEMORY destroyed live=0 peak=41714 largest=12408 allocations=387
+INTEROP_OK: bounded burst intact
+✔ bounded receive window survives a 64 KiB burst of small frames (1544.535059ms)
+MEMORY open live=22750 peak=27625 largest=12408 allocations=250
+MEMORY destroyed live=0 peak=27625 largest=12408 allocations=256
+INTEROP_OK: invalid MAC rejected
+✔ modified ciphertext is rejected before any plaintext is delivered (190.470286ms)
+MEMORY destroyed live=0 peak=27820 largest=12408 allocations=680
+✔ Espruino server accepts authorized commands and reuses its listener (423.721225ms)
+MEMORY destroyed live=0 peak=25807 largest=12408 allocations=400
+✔ Espruino listener rejects unknown keys and busy peers without losing the active stream (1183.805947ms)
+MEMORY destroyed live=0 peak=23926 largest=12408 allocations=182
+MEMORY ready live=19354 peak=23926 largest=12408 allocations=277
+MEMORY destroyed live=0 peak=23926 largest=12408 allocations=364
+MEMORY ready live=19354 peak=23926 largest=12408 allocations=459
+MEMORY destroyed live=0 peak=23926 largest=12408 allocations=546
+✔ Espruino listening nodes repeatedly destroy and restart without native leaks (233.548422ms)
+MEMORY destroyed live=0 peak=25797 largest=12408 allocations=290
+✔ Espruino destroys a listener with an active inbound stream (185.746583ms)
+MEMORY destroyed live=0 peak=22068 largest=12408 allocations=137
+✔ Espruino cancels an announcement before listener readiness (134.143997ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12635.313796

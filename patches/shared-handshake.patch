@@ -1,0 +1,102 @@
+--- a/include/hyperdht/peer_connect.hpp
++++ b/include/hyperdht/peer_connect.hpp
+@@ -9,6 +9,7 @@
+ #include <cstdint>
+ #include <functional>
+ #include <optional>
++#include <memory>
+ #include <string>
+ #include <vector>
+ 
+@@ -142,6 +143,13 @@
+ };
+ 
+ // Callback for handshake completion
++// One initiator request per connect, shared across relay attempts. The server
++// deduplicates sessions by these Noise bytes, as in JS c.request.
++struct HandshakeRequest {
++    std::shared_ptr<noise::NoiseIK> initiator;
++    std::vector<uint8_t> value;
++};
++
+ using OnHandshakeCallback = std::function<void(const HandshakeResult& result)>;
+ 
+ // ---------------------------------------------------------------------------
+@@ -178,7 +186,8 @@
+                     uint32_t firewall,
+                     const std::vector<compact::Ipv4Address>& addresses4,
+                     const std::optional<RelayThroughInfo>& relay_through,
+-                    OnHandshakeCallback on_done);
++                    OnHandshakeCallback on_done,
++                    std::shared_ptr<HandshakeRequest> request = nullptr);
+ 
+ }  // namespace peer_connect
+ }  // namespace hyperdht
+--- a/src/peer_connect.cpp
++++ b/src/peer_connect.cpp
+@@ -417,7 +417,10 @@
+                     uint32_t firewall,
+                     const std::vector<compact::Ipv4Address>& addresses4,
+                     const std::optional<RelayThroughInfo>& relay_through,
+-                    OnHandshakeCallback on_done) {
++                    OnHandshakeCallback on_done,
++                    std::shared_ptr<HandshakeRequest> request) {
++    if (!request) request = std::make_shared<HandshakeRequest>();
++    if (!request->initiator) {
+     // Create Noise IK initiator with real prologue
+     auto noise_ik = std::make_shared<noise::NoiseIK>(true, our_keypair,
+                                                       prologue().data(), prologue().size(),
+@@ -440,8 +443,13 @@
+     HandshakeMessage hs_msg;
+     hs_msg.mode = MODE_FROM_CLIENT;
+     hs_msg.noise = std::move(noise_msg1);
+-    auto hs_value = encode_handshake_msg(hs_msg);
+-
++    request->value = encode_handshake_msg(hs_msg);
++    request->initiator = std::move(noise_ik);
++    }
++
++    // Validate each response from the same post-msg1 state. A bad reply must
++    // not corrupt the shared request or prevent another relay from succeeding.
++    auto noise_ik = std::make_shared<noise::NoiseIK>(*request->initiator);
+     std::array<uint8_t, 32> target{};
+     crypto_generichash(target.data(), 32, remote_pubkey.data(), 32, nullptr, 0);
+ 
+@@ -449,7 +457,7 @@
+     req.to.addr = relay_addr;
+     req.command = messages::CMD_PEER_HANDSHAKE;
+     req.target = target;
+-    req.value = std::move(hs_value);
++    req.value = request->value;
+ 
+     socket.request(req,
+         [noise_ik, on_done, remote_pubkey, relay_addr](const messages::Response& resp) {
+--- a/src/connect.cpp
++++ b/src/connect.cpp
+@@ -55,6 +55,8 @@
+     compact::Ipv4Address relay_addr;  // Relay used by the winning handshake
+     std::vector<compact::Ipv4Address> relays;  // All relays discovered
+     peer_connect::HandshakeResult hs_result;
++    std::shared_ptr<peer_connect::HandshakeRequest> handshake_request =
++        std::make_shared<peer_connect::HandshakeRequest>();
+     std::shared_ptr<query::Query> query;
+     std::weak_ptr<bool> alive;  // Sentinel — expired if HyperDHT destroyed
+     rpc::RpcSocket* socket = nullptr;  // Raw pointer, guarded by alive
+@@ -368,7 +370,7 @@
+             if (state->query) state->query.reset();
+             state->pending_relays.clear();
+             on_handshake_success(state, hs);
+-        });
++        }, state->handshake_request);
+ }
+ 
+ // ---------------------------------------------------------------------------
+@@ -632,7 +634,7 @@
+                     // Route failed — fall through to findPeer
+                     DHT_LOG("  [connect] route shortcut failed, starting findPeer\n");
+                     start_find_peer(state);
+-                });
++                }, state->handshake_request);
+             return;  // Route attempt in progress — findPeer deferred
+         }
+     }

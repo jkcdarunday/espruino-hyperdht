@@ -1,0 +1,203 @@
+--- a/targets/esp32/jshardware.c
++++ b/targets/esp32/jshardware.c
+@@ -128,11 +128,11 @@
+   IOEventFlags exti;
+   Pin gpio_num = 0;
+   uint32_t gpio_intr_status = READ_PERI_REG(GPIO_STATUS_REG);   //read status to get interrupt status for GPIO0-31
+-#ifndef CONFIG_IDF_TARGET_ESP32C3
++#if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32C6)
+   uint32_t gpio_intr_status_h = READ_PERI_REG(GPIO_STATUS1_REG);//read status1 to get interrupt status for GPIO32-39
+ #endif
+   SET_PERI_REG_MASK(GPIO_STATUS_W1TC_REG, gpio_intr_status);    //Clear intr for gpio0-gpio31
+-#ifndef CONFIG_IDF_TARGET_ESP32C3
++#if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32C6)
+   SET_PERI_REG_MASK(GPIO_STATUS1_W1TC_REG, gpio_intr_status_h); //Clear intr for gpio32-gpio39
+ #endif
+ 
+@@ -143,7 +143,7 @@
+          jshPushIOWatchEvent(exti);
+       }
+     } else {
+-#ifndef CONFIG_IDF_TARGET_ESP32C3
++#if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32C6)
+       if(gpio_intr_status_h & BIT(gpio_num - 32)) {
+         exti = pinToEV_EXTI(gpio_num);
+         jshPushIOWatchEvent(exti);
+@@ -160,7 +160,7 @@
+ }
+ 
+ void jshPinDefaultPullup() {
+-#ifdef CONFIG_IDF_TARGET_ESP32C3
++#if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6)
+ 
+ #else
+   // 6-11 are used by Flash chip
+@@ -576,6 +576,8 @@
+   ) {
+ #ifdef CONFIG_IDF_TARGET_ESP32C3
+   return (pin!=18) && (pin!=19); // USB
++#elif CONFIG_IDF_TARGET_ESP32C6
++  return (pin!=12) && (pin!=13); // USB Serial/JTAG
+ #else
+   return !( pin >= 6 && pin <= 12 /*SPI FLASH*/);
+ #endif
+--- a/targets/esp32/jshardwareAnalog.c
++++ b/targets/esp32/jshardwareAnalog.c
+@@ -19,7 +19,7 @@
+ #if CONFIG_IDF_TARGET_ESP32
+ 	#include "driver/dac.h"
+ 	#include "driver/rtc_io.h"
+-#elif CONFIG_IDF_TARGET_ESP32C3
++#elif CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C6
+ 	typedef enum { DAC_CHAN_0=0 , DAC_CHAN_1=1 } dac_channel_t;
+ #elif CONFIG_IDF_TARGET_ESP32S3
+ 	typedef enum { DAC_CHAN_0=0 , DAC_CHAN_1=1 } dac_channel_t;
+@@ -57,7 +57,9 @@
+ #ifndef CONFIG_IDF_TARGET_ESP32C3
+     case 5: channel = ADC1_CHANNEL_5; break;
+     case 6: channel = ADC1_CHANNEL_6; break;
++#if !CONFIG_IDF_TARGET_ESP32C6
+     case 7: channel = ADC1_CHANNEL_7; break;
++#endif
+ #endif
+     default: channel = -1; break;
+   }
+@@ -177,7 +179,7 @@
+ #else
+   if(channel >= 0) dac_out_voltage(channel, value);
+ #endif
+-#elif CONFIG_IDF_TARGET_ESP32C3
++#elif CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C6
+   jsExceptionHere(JSET_ERROR, "not implemented\n");
+ #elif CONFIG_IDF_TARGET_ESP32S3
+   jsExceptionHere(JSET_ERROR, "not implemented\n");
+--- a/targets/esp32/jshardwarePWM.c
++++ b/targets/esp32/jshardwarePWM.c
+@@ -74,7 +74,7 @@
+     .speed_mode = LEDC_HIGH_SPEED_MODE,//timer mode,
+     .timer_num = timer//timer index
+   };
+-#elif CONFIG_IDF_TARGET_ESP32C3
++#elif CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C6
+     .freq_hz = freq,//set frequency of pwm
+     .speed_mode = LEDC_LOW_SPEED_MODE,//timer mode,
+     .timer_num = timer//timer index
+@@ -100,7 +100,7 @@
+     .speed_mode = LEDC_HIGH_SPEED_MODE,//set LEDC mode, from ledc_mode_t
+     .timer_sel = timer
+   };
+-#elif CONFIG_IDF_TARGET_ESP32C3
++#elif CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C6
+   ledc_channel_config_t PWM_channel = {
+     .channel = channel,//set LEDC channel 0
+     .duty = value,//set the duty for initialization.(duty range is 0 ~ ((2**bit_num)-1)
+@@ -158,7 +158,7 @@
+   int channel = getChannelIndex(pin);
+   if(channel < 0) jsError("pin not assigned to pwm");
+   else ledc_set_duty(LEDC_HIGH_SPEED_MODE, channel, value);
+-#elif CONFIG_IDF_TARGET_ESP32C3
++#elif CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C6
+ 	// No DAC implemented on ESP32C3
+ #elif CONFIG_IDF_TARGET_ESP32S3
+ 	// No DAC implemented on ESP32S3
+--- a/targets/esp32/jshardwareSpi.h
++++ b/targets/esp32/jshardwareSpi.h
+@@ -23,7 +23,7 @@
+ // Convert an Espruino pin to an ESP32 pin number.
+ gpio_num_t pinToESP32Pin(Pin pin);
+ 
+-#if CONFIG_IDF_TARGET_ESP32C3
++#if CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C6
+ #define SPIMax 1
+ #else
+ #define SPIMax 2
+--- a/targets/esp32/jswrap_esp32.c
++++ b/targets/esp32/jswrap_esp32.c
+@@ -145,7 +145,9 @@
+     jsExceptionHere(JSET_ERROR, "Invalid pin");
+     return;
+   }
+-#ifdef CONFIG_IDF_TARGET_ESP32C3
++#if CONFIG_IDF_TARGET_ESP32C6
++  esp_sleep_enable_ext1_wakeup_io(esp32DeepSleepGpioMask(pin), level ? ESP_EXT1_WAKEUP_ANY_HIGH : ESP_EXT1_WAKEUP_ANY_LOW);
++#elif CONFIG_IDF_TARGET_ESP32C3
+   esp_deep_sleep_enable_gpio_wakeup(esp32DeepSleepGpioMask(pin), level);
+ #else
+   esp_sleep_enable_ext0_wakeup(pinToESP32Pin(pin), level);
+@@ -207,7 +209,13 @@
+     return;
+   }
+ 
+-#ifdef CONFIG_IDF_TARGET_ESP32C3
++#if CONFIG_IDF_TARGET_ESP32C6
++  if (!mode && (pinSum & (pinSum - 1))) {
++    jsExceptionHere(JSET_ERROR, "C6 cannot wake on ALL_LOW for multiple pins");
++    return;
++  }
++  esp_sleep_enable_ext1_wakeup_io(pinSum, mode ? ESP_EXT1_WAKEUP_ANY_HIGH : ESP_EXT1_WAKEUP_ANY_LOW);
++#elif CONFIG_IDF_TARGET_ESP32C3
+   esp_deep_sleep_enable_gpio_wakeup(pinSum, mode);
+ #else
+   esp_sleep_enable_ext1_wakeup(pinSum, mode);
+--- a/targets/esp32/main.c
++++ b/targets/esp32/main.c
+@@ -1,4 +1,5 @@
+ #include <stdio.h>
++#include <stdlib.h>
+ 
+ #include "freertos/FreeRTOS.h"
+ #include "esp_wifi.h"
+@@ -103,7 +104,12 @@
+   jshInit();     // Initialize the hardware
+   jswHWInit();
+ 
+-  heapVars = (esp_get_free_heap_size() - ESP_HEAP_SIZE) / sizeof(JsVar);  //calculate space for jsVars
++  size_t freeHeap = esp_get_free_heap_size();
++  if (freeHeap <= ESP_HEAP_SIZE + 256 * sizeof(JsVar)) {
++    printf("Insufficient heap for JS variables and native reserve\n");
++    abort();
++  }
++  heapVars = (freeHeap - ESP_HEAP_SIZE) / sizeof(JsVar);
+ 
+   //Limit number of JsVars to maximum addressable. Can otherwise be
+   //breached by builds with modules removed or boards using PSRAM.
+--- a/targets/esp32/rtosutil.c
++++ b/targets/esp32/rtosutil.c
+@@ -48,7 +48,7 @@
+     #define TIMER_0_INT_CLR()         (TIMERG0.int_clr_timers.t0 = 1)
+     #define TIMER_1_INT_CLR()         (TIMERG0.int_clr_timers.t1 = 1)
+   #endif
+-#elif CONFIG_IDF_TARGET_ESP32C3
++#elif CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C6
+   #define TIMER_FINE_ADJ   (((14ULL * (uint64_t)esp_clk_apb_freq()) + (10ULL * TIMER_DIVIDER * 1000000ULL) - 1) / (10ULL * TIMER_DIVIDER * 1000000ULL))
+   #define TIMER_TX_UPDATE(TIMER_N) (TIMERG0.hw_timer[TIMER_N].update.tx_update = 1)
+   #define TIMER_ALARM_EN(TIMER_N)  (TIMERG0.hw_timer[TIMER_N].config.tx_alarm_en = 1)
+@@ -74,7 +74,7 @@
+     TIMER_TX_UPDATE(0);
+     TIMER_0_INT_CLR();
+   }
+-#if !CONFIG_IDF_TARGET_ESP32C3
++#if !CONFIG_IDF_TARGET_ESP32C3 && !CONFIG_IDF_TARGET_ESP32C6
+   else {
+     TIMER_TX_UPDATE(1);
+     TIMER_1_INT_CLR();
+@@ -88,7 +88,7 @@
+     TIMER_TX_UPDATE(0);
+     TIMER_0_INT_CLR();
+   }
+-#if !CONFIG_IDF_TARGET_ESP32C3
++#if !CONFIG_IDF_TARGET_ESP32C3 && !CONFIG_IDF_TARGET_ESP32C6
+   else {
+     TIMER_TX_UPDATE(1);
+     TIMER_1_INT_CLR();
+--- a/targets/esp32/rtosutil.h
++++ b/targets/esp32/rtosutil.h
+@@ -31,7 +31,7 @@
+ typedef struct { char *name; TaskHandle_t handle; } RTOStask_t;
+ extern RTOStask_t RTOStasks[taskMax];
+ 
+-#ifndef CONFIG_IDF_TARGET_ESP32C3
++#if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32C6)
+ #define timerMax 2 //for Timer we use an array of timer relevant info
+ #else
+ #define timerMax 1 // C3 only has one

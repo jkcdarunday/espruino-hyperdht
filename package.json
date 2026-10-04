@@ -1,0 +1,19 @@
+{
+  "name": "espruino-hyperdht-client",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Sensor-sized direct HyperDHT client and server for custom Espruino firmware",
+  "scripts": {
+    "test": "node --test test/interop.test.js test/query-frontier.test.js",
+    "echo": "node examples/echo-server.js",
+    "bundle": "node scripts/bundle.js",
+    "sensor": "node examples/sensor-server.js",
+    "controller": "node examples/controller.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "hyperdht": "6.34.0"
+  }
+}

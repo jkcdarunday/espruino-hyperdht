@@ -1,0 +1,6 @@
+{
+  "espruino": { "repo": "espruino/Espruino", "commit": "84c190da7feb10a976d7ca422be39adaa10fb3c2" },
+  "hyperdht": { "repo": "jjacke13/hyperdht-cpp", "commit": "95cb5d94c119f654b83bb3a91a0cdc5db2355c65" },
+  "libudx": { "repo": "holepunchto/libudx", "commit": "759bf7641347f65a1896d4bc4c3b1606a459f466" },
+  "referenceHyperDHT": "6.34.0"
+}

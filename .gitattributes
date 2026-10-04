@@ -1,0 +1,8 @@
+* text=auto eol=lf
+*.bin binary
+*.elf binary
+# Preserve upstream patch context and captured validation output verbatim.
+patches/*.patch -whitespace
+docs/*.txt -whitespace
+docs/*.log -whitespace
+docs/*.lock -whitespace

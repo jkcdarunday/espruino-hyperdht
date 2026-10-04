@@ -1,0 +1,10 @@
+--- a/src/query.cpp
++++ b/src/query.cpp
+@@ -298,6 +298,7 @@
+     messages::Request req;
+     req.to.addr = node.addr;
+     req.command = command_;
++    req.internal = internal_;
+     req.target = target_;
+     if (value_.has_value()) {
+         req.value = *value_;

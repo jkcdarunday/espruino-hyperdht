@@ -1,0 +1,551 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -11,6 +11,7 @@
+ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+ 
+ # === Options ===
++option(HYPERDHT_SMALL_CLIENT "Bounded sensor-client memory profile" OFF)
+ option(HYPERDHT_DEBUG "Enable debug logging to stderr" OFF)
+ option(HYPERDHT_EMBEDDED "Reduce sizing constants for embedded targets (ESP32)" OFF)
+ 
+@@ -191,6 +192,11 @@
+ endif()
+ if(HYPERDHT_EMBEDDED)
+     target_compile_definitions(hyperdht PUBLIC HYPERDHT_EMBEDDED=1)
++endif()
++
++if(HYPERDHT_SMALL_CLIENT)
++    target_compile_definitions(hyperdht PUBLIC HYPERDHT_SMALL_CLIENT=1)
++    target_compile_definitions(udx PUBLIC HYPERDHT_SMALL_CLIENT=1)
+ endif()
+ 
+ # Position-independent code (needed for shared lib and when static is linked into a .so)
+--- a/components/hyperdht/CMakeLists.txt
++++ b/components/hyperdht/CMakeLists.txt
+@@ -84,3 +84,5 @@
+ set_property(TARGET ${COMPONENT_LIB} PROPERTY
+     INTERFACE_LINK_LIBRARIES_DIRECT_EXCLUDE ""
+ )
++
++target_compile_definitions(${COMPONENT_LIB} PUBLIC HYPERDHT_SMALL_CLIENT=1)
+--- a/components/libudx/CMakeLists.txt
++++ b/components/libudx/CMakeLists.txt
+@@ -41,3 +41,5 @@
+     IP_PMTUDISC_PROBE=3
+     IPV6_PMTUDISC_PROBE=3
+ )
++
++target_compile_definitions(${COMPONENT_LIB} PUBLIC HYPERDHT_SMALL_CLIENT=1)
+--- a/deps/libudx/include/udx.h
++++ b/deps/libudx/include/udx.h
+@@ -634,6 +634,9 @@
+ udx_stream_set_rwnd_max (udx_stream_t *stream, uint32_t rwnd_max);
+ 
+ int
++udx_stream_read_update (udx_stream_t *stream);
++
++int
+ udx_stream_connect (udx_stream_t *stream, udx_socket_t *socket, uint32_t remote_id, const struct sockaddr *remote_addr);
+ 
+ int
+--- a/deps/libudx/src/udx.c
++++ b/deps/libudx/src/udx.c
+@@ -34,16 +34,28 @@
+ 
+ #define UDX_DEFAULT_TTL         64
+ #define UDX_INIT_PACING_RATE    25000 // 25MB/s, 200mbit. updated by bbr_init
++#ifdef HYPERDHT_SMALL_CLIENT
++#define UDX_DEFAULT_SNDBUF_SIZE 8192
++#else
+ #define UDX_DEFAULT_SNDBUF_SIZE 212992
++#endif
+ 
+ #define UDX_MAX_RTO_TIMEOUTS 6
+ 
+ #define UDX_RTO_MAX_MS        30000
+ #define UDX_RTT_MAX_MS        30000
+ #define UDX_RTT_MIN_WINDOW_MS 300000            // 300 seconds, same as Linux default
++#ifdef HYPERDHT_SMALL_CLIENT
++#define UDX_DEFAULT_RWND_MAX 8192
++#else
+ #define UDX_DEFAULT_RWND_MAX  (4 * 1024 * 1024) // arbitrary, ~175 1500 mtu packets, @20ms latency = 416 mbits/sec
+-
++#endif
++
++#ifdef HYPERDHT_SMALL_CLIENT
++#define UDX_HIGH_WATERMARK 4096
++#else
+ #define UDX_HIGH_WATERMARK 262144
++#endif
+ 
+ #define UDX_TLP_MAX_ACK_DELAY 2
+ 
+@@ -1352,6 +1364,9 @@
+     return;
+   }
+ 
++#ifdef HYPERDHT_SMALL_CLIENT
++  if (seq_compare(seq, stream->ack) > 32 || stream->pkts_buffered >= 16) return;
++#endif
+   stream->out_of_order++;
+ 
+   // Slow path, packet out of order.
+@@ -2009,10 +2024,14 @@
+   // memory can't be allocated, which is fine.
+ 
+   int buffer_sizes[] = {
++#ifdef HYPERDHT_SMALL_CLIENT
++    8192, 4096
++#else
+     1024 * 1024, // 1MB
+     512 * 1024,  // 512k
+     256 * 1024,  // 256k
+     208 * 1024   // 212k this old maximum is known to work well
++#endif
+   };
+ 
+   int rcvbuf_size = buffer_sizes[0];
+@@ -2331,6 +2350,13 @@
+ }
+ 
+ int
++udx_stream_read_update (udx_stream_t *stream) {
++  if (stream->status & UDX_STREAM_DEAD) return UV_EINVAL;
++  if (stream->status & UDX_STREAM_CONNECTED) send_ack(stream);
++  return 0;
++}
++
++int
+ udx_stream_set_rwnd_max (udx_stream_t *stream, uint32_t size) {
+   stream->recv_rwnd_max = size;
+   return 0;
+@@ -2857,7 +2883,7 @@
+     event->on_close(event);
+   }
+ 
+-  ref_dec(event->udx);
++  ref_dec(udx); // event may have been freed by on_close above
+ }
+ 
+ int
+--- a/include/hyperdht/hyperdht.h
++++ b/include/hyperdht/hyperdht.h
+@@ -649,6 +649,8 @@
+ 
+ /* Local client binding extension: abort without waiting for peer FIN. */
+ HYPERDHT_API void hyperdht_stream_destroy(hyperdht_stream_t* stream);
++/* Valid during the close callback; negative means protocol/transport failure. */
++int hyperdht_stream_close_error(hyperdht_stream_t* stream);
+ 
+ /**
+  * Check if the stream has completed the header exchange and is ready.
+--- a/include/hyperdht/query.hpp
++++ b/include/hyperdht/query.hpp
+@@ -27,7 +27,11 @@
+ namespace hyperdht {
+ namespace query {
+ 
++#ifdef HYPERDHT_SMALL_CLIENT
++constexpr int DEFAULT_CONCURRENCY = 3;
++#else
+ constexpr int DEFAULT_CONCURRENCY = 10;
++#endif
+ constexpr int SLOWDOWN_CONCURRENCY = 3;
+ 
+ // JS dht-rpc/lib/query.js:28-29 — a query command's request retries default to
+--- a/include/hyperdht/rpc.hpp
++++ b/include/hyperdht/rpc.hpp
+@@ -32,7 +32,11 @@
+ // ---------------------------------------------------------------------------
+ 
+ #ifdef HYPERDHT_EMBEDDED
++#ifdef HYPERDHT_SMALL_CLIENT
++constexpr int DEFAULT_MAX_WINDOW = 4;
++#else
+ constexpr int DEFAULT_MAX_WINDOW = 16;  // Reduced for embedded
++#endif
+ #else
+ constexpr int DEFAULT_MAX_WINDOW = 80;
+ #endif
+--- a/include/hyperdht/secret_stream.hpp
++++ b/include/hyperdht/secret_stream.hpp
+@@ -104,6 +104,7 @@
+     // Also refreshes the timeout timer (we just received data)
+     // Empty messages (0-byte plaintext) are suppressed when keepalive is active
+     std::optional<std::vector<uint8_t>> decrypt(const uint8_t* data, size_t len);
++    bool decrypt_inplace(std::vector<uint8_t>& frame);
+ 
+     // -----------------------------------------------------------------------
+     // Keepalive / Timeout (matches JS @hyperswarm/secret-stream)
+@@ -192,7 +193,11 @@
+ 
+ // Max plaintext size per write — enforced by uint24_le frame length.
+ // Matches JS MAX_ATOMIC_WRITE = 0xFFFFFF (16 777 215) minus ABYTES.
++#ifdef HYPERDHT_SMALL_CLIENT
++constexpr size_t MAX_ATOMIC_WRITE = 4096;
++#else
+ constexpr size_t MAX_ATOMIC_WRITE = 0xFFFFFF - ABYTES;
++#endif
+ 
+ // Pre-computed keys passed to SecretStreamDuplex constructor, equivalent to
+ // JS `handshake = { tx, rx, hash, publicKey, remotePublicKey }`.
+@@ -372,7 +377,11 @@
+     // wire level, so without this a peer can make a paused stream allocate
+     // without limit. Mirrors the pending_messages_ cap: over the line is a
+     // resource violation and the stream is destroyed.
++#ifdef HYPERDHT_SMALL_CLIENT
++    static constexpr size_t kMaxPausedBacklog = 16384;
++#else
+     static constexpr size_t kMaxPausedBacklog = 4 * 1024 * 1024;
++#endif
+ 
+     // Messages received before on_connect fires (JS buffers these
+     // implicitly via Node.js Readable stream internals). Replayed
+--- a/src/connect.cpp
++++ b/src/connect.cpp
+@@ -35,7 +35,8 @@
+                                        const struct sockaddr* from) {
+     auto* ctx = static_cast<ClientRawStreamCtx*>(stream->data);
+     if (ctx && !ctx->alive.expired() && ctx->on_firewall) {
+-        ctx->on_firewall(stream, socket, from);
++        auto cb = ctx->on_firewall; // ownership transfer may delete ctx
++        cb(stream, socket, from);
+     }
+     return 0;
+ }
+@@ -206,7 +207,8 @@
+     // Transfer rawStream ownership to result, cleaning up firewall ctx
+     void take_raw_stream(ConnectResult& result) {
+         if (raw_stream) {
+-            // Detach context — stream's on_close will handle cleanup
++            // Release the handshake context before the Duplex takes data ownership.
++            delete static_cast<ClientRawStreamCtx*>(raw_stream->data);
+             raw_stream->data = nullptr;
+             result.raw_stream = raw_stream;
+             raw_stream = nullptr;
+--- a/src/dht_network.cpp
++++ b/src/dht_network.cpp
+@@ -318,19 +318,9 @@
+     }
+     // Null the data pointer so any pending callback is a no-op.
+     interface_watcher_->data = nullptr;
+-    // Do NOT call udx_interface_event_close() here — the udx_t teardown
+-    // (triggered by socket_->close()) will close all attached interface
+-    // events automatically (libudx/src/udx.c:1879). Calling close manually
+-    // AND letting teardown close it causes the close callback to fire after
+-    // the udx_t is freed -> use-after-free in ref_dec(event->udx).
+-    //
+-    // Trade-off accepted: the `udx_interface_event_t` heap struct leaks
+-    // ~232 bytes per HyperDHT instance at process exit, because libudx
+-    // teardown closes its listener handles but our `on_udx_interface_close`
+-    // deleter never fires in that path. Fixable only by patching libudx
+-    // to invoke the user close callback from its teardown loop. Since
+-    // the leak is bounded per process lifetime (one per HyperDHT)
+-    // and not per-operation, we accept it.
++    // Close now, while RpcSocket and its udx_t are still alive. The bridge
++    // drains closing handles before freeing the DHT. libudx close is guarded.
++    udx_interface_event_close(interface_watcher_);
+     interface_watcher_ = nullptr;
+ }
+ 
+--- a/src/ffi_core.cpp
++++ b/src/ffi_core.cpp
+@@ -92,6 +92,11 @@
+     if (!loop) return nullptr;
+ 
+     hyperdht::DhtOptions cpp_opts;
++#ifdef HYPERDHT_SMALL_CLIENT
++    cpp_opts.ephemeral = true;
++    cpp_opts.adaptive = false;
++    cpp_opts.max_size = 2;
++#endif
+     if (opts) {
+         cpp_opts.port = opts->port;
+         // C API only expresses two states: the default (ephemeral != 0) maps to
+--- a/src/ffi_internal.hpp
++++ b/src/ffi_internal.hpp
+@@ -97,6 +97,7 @@
+     hyperdht_udp_msg_cb on_udp_message = nullptr;
+     void* udp_userdata = nullptr;
+ 
++    int close_error = 0;
+     bool closed = false;
+     // H18: shared closed flag survives stream deletion — drain callbacks
+     // check this instead of reading freed stream->closed.
+--- a/src/ffi_stream.cpp
++++ b/src/ffi_stream.cpp
+@@ -180,6 +180,7 @@
+     });
+     s->duplex->on_close([s](int err) {
+         DHT_LOG("  [ffi-stream] on_close: err=%d\n", err);
++        s->close_error = err;
+         stream_fire_close(s);
+     });
+ 
+@@ -329,3 +330,5 @@
+     uv_close(reinterpret_cast<uv_handle_t*>(&handle->handle),
+              [](uv_handle_t* h) { delete static_cast<hyperdht_poll_t*>(h->data); });
+ }
++
++int hyperdht_stream_close_error(hyperdht_stream_t* stream) { return stream ? stream->close_error : 0; }
+--- a/src/holepunch.cpp
++++ b/src/holepunch.cpp
+@@ -1391,6 +1391,7 @@
+         targets.push_back(Ipv4Address::from_string(closest[i]->host, closest[i]->port));
+     }
+ 
++#ifndef HYPERDHT_SMALL_CLIENT
+     // Fallback: use bootstrap nodes when routing table is sparse. Try to
+     // reach MAX_TARGETS so we still get >= MIN_SAMPLES successes even if
+     // the carrier drops a packet or two.
+@@ -1403,6 +1404,8 @@
+             targets.push_back(Ipv4Address::from_string(host, 49737));
+         }
+     }
++
++#endif
+ 
+     ctx->pending = static_cast<int>(targets.size()) + 1;  // +1 for initial decrement
+ 
+--- a/src/nat_sampler.cpp
++++ b/src/nat_sampler.cpp
+@@ -99,7 +99,11 @@
+     // Deduplicate by source node — don't sample the same node twice
+     auto ref = from.host_string() + ":" + std::to_string(from.port);
+     if (visited_.count(ref)) return false;
+-    constexpr size_t MAX_VISITED = 1024;  // H24: cap visited set
++#ifdef HYPERDHT_SMALL_CLIENT
++    constexpr size_t MAX_VISITED = 32;
++#else
++    constexpr size_t MAX_VISITED = 1024;
++#endif
+     if (visited_.size() >= MAX_VISITED) return false;
+     visited_.insert(ref);
+ 
+--- a/src/query.cpp
++++ b/src/query.cpp
+@@ -151,20 +151,36 @@
+             if (ref) socket_.try_send_down_hint(*ref, addr);
+         } else if (it->second == NodeState::PENDING) {
+             // Still queued: just record the extra referrer (JS query.js:156-159).
+-            if (ref) refs_[key].push_back(*ref);
++            if (ref) {
++#ifdef HYPERDHT_SMALL_CLIENT
++                if (refs_[key].size() < 2) refs_[key].push_back(*ref);
++#else
++                refs_[key].push_back(*ref);
++#endif
++            }
+         }
+         // DONE: nothing to do. Never re-add (dedup).
+         return;
+     }
+ 
++#ifdef HYPERDHT_SMALL_CLIENT
++    constexpr size_t MAX_SEEN = 128;
++#else
+     constexpr size_t MAX_SEEN = 4096;  // C13: cap to prevent heap exhaustion
++#endif
+     if (seen_.size() >= MAX_SEEN) return;
+ 
+     // Honour the RpcSocket's filter_node callback (JS `_filterNode`).
+     if (!socket_.filter_accept(id, addr)) return;
+ 
+     seen_[key] = NodeState::PENDING;
+-    if (ref) refs_[key].push_back(*ref);
++    if (ref) {
++#ifdef HYPERDHT_SMALL_CLIENT
++                if (refs_[key].size() < 2) refs_[key].push_back(*ref);
++#else
++                refs_[key].push_back(*ref);
++#endif
++            }
+     pending_.push_back({id, addr});
+ }
+ 
+--- a/src/routing_table.cpp
++++ b/src/routing_table.cpp
+@@ -129,6 +129,10 @@
+         return true;
+     }
+ 
++#ifdef HYPERDHT_SMALL_CLIENT
++    // Ephemeral sensor clients need a small seed table, not a routing service.
++    if (size_ >= 32) return false;
++#endif
+     if (bucket.add(node)) {
+         size_++;
+         return true;
+--- a/src/rpc.cpp
++++ b/src/rpc.cpp
+@@ -460,7 +460,11 @@
+     // Check congestion window
+     if (congestion_.is_full()) {
+         // C12: cap pending queue to prevent unbounded memory growth
++#ifdef HYPERDHT_SMALL_CLIENT
++        constexpr size_t MAX_PENDING = 16;
++#else
+         constexpr size_t MAX_PENDING = 640;
++#endif
+         if (pending_.size() >= MAX_PENDING) {
+             // The timer was uv_timer_init'd above, so libuv holds the handle
+             // until the close callback runs next tick — the InflightRequest
+@@ -1542,7 +1546,11 @@
+ // ---------------------------------------------------------------------------
+ 
+ void RpcSocket::record_rtt(const compact::Ipv4Address& peer, uint64_t rtt_ms) {
++#ifdef HYPERDHT_SMALL_CLIENT
++    constexpr size_t MAX_PEER_RTT_ENTRIES = 32;
++#else
+     constexpr size_t MAX_PEER_RTT_ENTRIES = 1024;
++#endif
+ 
+     auto key = peer.host_string() + ":" + std::to_string(peer.port);
+     auto it = peer_rtt_.find(key);
+--- a/src/rpc_handlers.cpp
++++ b/src/rpc_handlers.cpp
+@@ -208,7 +208,11 @@
+         // changes at the persistent transition. dht-rpc turns that `false` into
+         // an UNKNOWN_COMMAND reply (index.js:684-685), so an ephemeral node
+         // answers storage queries with an error instead of silently timing out.
++#ifdef HYPERDHT_SMALL_CLIENT
++        if (true) {
++#else
+         if (socket_.is_ephemeral()) {
++#endif
+             send_unknown_command_reply(req);
+             return;
+         }
+@@ -436,7 +440,11 @@
+ 
+ void RpcHandlers::handle_delayed_ping(const messages::Request& req) {
+     if (!req.value.has_value() || req.value->size() < 4) return;
++#ifdef HYPERDHT_SMALL_CLIENT
++    constexpr size_t MAX_PENDING_DELAYED = 2;
++#else
+     constexpr size_t MAX_PENDING_DELAYED = 256;  // H22: cap timer accumulation
++#endif
+     if (pending_delayed_.size() >= MAX_PENDING_DELAYED) return;
+ 
+     const auto& v = *req.value;
+--- a/src/secret_stream.cpp
++++ b/src/secret_stream.cpp
+@@ -205,6 +205,19 @@
+     }
+ 
+     return pt;
++}
++
++bool SecretStream::decrypt_inplace(std::vector<uint8_t>& frame) {
++    if (!is_ready() || frame.size() < ABYTES) return false;
++    if (timeout_timer_) uv_timer_again(timeout_timer_);
++    auto* pull = reinterpret_cast<crypto_secretstream_xchacha20poly1305_state*>(pull_state_);
++    unsigned long long length = 0;
++    unsigned char tag = 0;
++    int rc = crypto_secretstream_xchacha20poly1305_pull(
++        pull, frame.data(), &length, &tag, frame.data(), frame.size(), nullptr, 0);
++    if (rc) return false;
++    frame.resize(static_cast<size_t>(length));
++    return true;
+ }
+ 
+ // ---------------------------------------------------------------------------
+@@ -459,6 +472,13 @@
+     // The user is expected to have initialized the stream (udx_stream_init)
+     // but NOT installed a read callback yet.
+     raw_stream_->data = this;
++#ifdef HYPERDHT_SMALL_CLIENT
++    udx_stream_set_rwnd_max(raw_stream_, 8192);
++    raw_stream_->get_read_buffer_size = [](udx_stream_t* raw) -> uint32_t {
++        auto* self = static_cast<SecretStreamDuplex*>(raw->data);
++        return (self->read_paused_ || (self->header_received_ && !self->header_sent_)) ? raw->recv_rwnd_max : static_cast<uint32_t>(self->recv_buf_.size());
++    };
++#endif
+     raw_stream_->on_read = nullptr;    // cleared — we install via recv/read_start
+     raw_stream_->on_close = on_udx_close;
+ 
+@@ -518,6 +538,9 @@
+     // stop extracting frames instead, which is what JS does (streamx buffers
+     // above udx rather than stopping it).
+     read_paused_ = true;
++#ifdef HYPERDHT_SMALL_CLIENT
++    if (raw_stream_) udx_stream_read_update(raw_stream_);
++#endif
+ }
+ 
+ void SecretStreamDuplex::resume_read() {
+@@ -528,6 +551,10 @@
+     // layer deletes the Duplex from inside on_close. Every member access
+     // below that point would be a use-after-free.
+     if (!drain_frames()) return;
++#ifdef HYPERDHT_SMALL_CLIENT
++    // Drain first: application callbacks may immediately pause us again.
++    if (raw_stream_ && !destroyed_) udx_stream_read_update(raw_stream_);
++#endif
+     if (end_pending_ && !read_paused_) {
+         end_pending_ = false;
+         if (on_end_) on_end_();
+@@ -548,6 +575,11 @@
+         // would report success out of a freed object.
+         if (!*alive) return false;
+         if (destroyed_ || read_paused_) return true;
++#ifdef HYPERDHT_SMALL_CLIENT
++        // Hold ciphertext until our header is acknowledged. A peer may send a
++        // whole window before that ACK; do not queue decoded application frames.
++        if (header_received_ && !header_sent_) return true;
++#endif
+         const bool more = try_extract_frame();
+         if (!*alive) return false;
+         if (!more) return true;
+@@ -581,6 +613,12 @@
+                     self->header_sent_ = true;
+                     self->raw_bytes_written_ += ctx->buf.size();
+                     self->maybe_fire_connect();
++#ifdef HYPERDHT_SMALL_CLIENT
++                    if (*alive && !self->destroyed_) {
++                        if (self->drain_frames() && !self->destroyed_ && self->raw_stream_)
++                            udx_stream_read_update(self->raw_stream_);
++                    }
++#endif
+                 } else {
+                     self->destroy(status);
+                 }
+@@ -788,10 +826,12 @@
+     // header then pausing is kept alive (decrypt() alone refreshes only on
+     // complete data frames).
+     crypto_.refresh_timeout();
++    // Check BEFORE allocation, including while assembling a partial frame.
++    if (len > kMaxPausedBacklog - recv_buf_.size()) { destroy(-11); return; }
+     recv_buf_.insert(recv_buf_.end(), data, data + len);
+ 
+     // Paused: bytes stay in recv_buf_ and are extracted by resume_read().
+-    // Cap the backlog — a paused stream no longer slows the sender down.
++    // Bound bytes already in flight while the receive window closes.
+     if (read_paused_) {
+         if (recv_buf_.size() > kMaxPausedBacklog) destroy(-11);
+         return;
+@@ -854,8 +894,10 @@
+ 
+     // Data frame — decrypt. decrypt() returns nullopt for suppressed empty
+     // keepalives OR on auth failure; we treat both as "no message to deliver".
+-    auto plain = crypto_.decrypt(msg.data(), msg.size());
+-    if (!plain.has_value()) return;
++    // Do not allocate a second plaintext buffer, and abort on invalid MAC.
++    if (!crypto_.decrypt_inplace(msg)) { destroy(-12); return; }
++    if (msg.empty()) return;
++    auto* plain = &msg;
+ 
+     // JS buffers data that arrives before on_connect via Node.js Readable
+     // stream internals. We do the same explicitly: queue messages until
+@@ -868,7 +910,11 @@
+         // JS mitigates this via Node.js Readable highWaterMark backpressure.
+         // NOT fixable with udx_stream_read_stop — that acks and discards
+         // (see the pause_read banner). pause_read() is the real lever.
++#ifdef HYPERDHT_SMALL_CLIENT
++        if (pending_messages_.size() > 2) {
++#else
+         if (pending_messages_.size() > 64) {
++#endif
+             destroy(-7);
+         }
+         return;

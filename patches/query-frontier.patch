@@ -1,0 +1,27 @@
+--- a/src/query.cpp
++++ b/src/query.cpp
+@@ -130,7 +130,7 @@
+-// C++ diffs from JS:
+-//   - C++ does the closeness check inside read_more() instead of inside
+-//     add_pending(); add_pending here does the seen-set + filter check plus the
+-//     refs/DOWN dispatch (records referrers, DOWN_HINTs a re-seen dead node).
++// As in JS, check closeness before insertion and again in read_more(),
++// since later replies refine the frontier. Rejecting before insertion keeps
++// irrelevant referrals out of the bounded seen-set. Existing nodes still
++// receive refs/DOWN bookkeeping (including dead-node gossip).
+ // ---------------------------------------------------------------------------
+ 
+ void Query::add_pending(const routing::NodeId& id, const compact::Ipv4Address& addr,
+@@ -163,6 +163,12 @@
+         return;
+     }
+ 
++    // Match JS _addPending: irrelevant referrals must not consume seen_.
++    // This matters especially with the sensor profile's 128-entry budget.
++    // Zero IDs are unresolved bootstrap seeds and must always be admitted.
++    routing::NodeId zero_id{};
++    if (id != zero_id && !is_closer(id)) return;
++
+ #ifdef HYPERDHT_SMALL_CLIENT
+     constexpr size_t MAX_SEEN = 128;
+ #else

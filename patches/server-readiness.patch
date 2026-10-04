@@ -1,0 +1,59 @@
+--- a/include/hyperdht/announcer.hpp
++++ b/include/hyperdht/announcer.hpp
+@@ -74,6 +74,8 @@
+     Announcer& operator=(const Announcer&) = delete;
+ 
+     void start();
++    // One-shot notification after the first acknowledged announcement cycle.
++    void on_ready(std::function<void()> cb) { on_ready_ = std::move(cb); }
+     void stop(std::function<void()> on_done = nullptr);
+ 
+     // Force-stop: tear down timers and relays WITHOUT emitting
+@@ -159,6 +161,7 @@
+     // Common teardown invoked by stop() and stop_without_unannounce().
+     void stop_impl(bool send_unannounce);
+ 
++    std::function<void()> on_ready_;
+     rpc::RpcSocket& socket_;
+     noise::Keypair keypair_;
+     std::array<uint8_t, 32> target_;
+--- a/src/announcer.cpp
++++ b/src/announcer.cpp
+@@ -492,6 +492,11 @@
+ 
+     cycle_relays_.clear();  // moved-from vectors are valid but unspecified
+     updating_ = false;
++    if (running_ && !active_relays_.empty() && on_ready_) {
++        auto ready = std::move(on_ready_);
++        on_ready_ = nullptr;
++        ready(); // Last action: callback may close the server.
++    }
+ }
+ 
+ // ---------------------------------------------------------------------------
+--- a/src/server.cpp
++++ b/src/server.cpp
+@@ -231,6 +231,9 @@
+ 
+     // Start the Announcer
+     announcer_ = std::make_unique<announcer::Announcer>(socket_, keypair_, target_);
++    announcer_->on_ready([this]() {
++        if (!closed_ && on_listening_cb_) on_listening_cb_();
++    });
+     announcer_->start();
+ 
+     // Set the peer record on the router entry (updated by announcer later)
+@@ -240,11 +243,8 @@
+     DHT_LOG( "  [server] Listening on %s\n",
+             to_hex(keypair_.public_key.data(), 8).c_str());
+ 
+-    // JS: server.js:195 — `emit('listening')` after announcer.start().
+-    // Our listen() is synchronous, so fire the hook here on the same
+-    // tick as listen() returns. Callers that registered on_listening()
+-    // BEFORE listen() receive the notification immediately.
+-    if (on_listening_cb_) on_listening_cb_();
++    // Listening is reported only after the initial announcement settles.
++    // Emitting synchronously here races the controller's first DHT lookup.
+ }
+ 
+ // ---------------------------------------------------------------------------

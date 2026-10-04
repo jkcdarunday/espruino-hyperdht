@@ -1,0 +1,28 @@
+✖ early discovery completion cancels silent RPC requests (2009.372281ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2056.932641
+
+✖ failing tests:
+
+test at test/query-frontier.test.js:98:1
+✖ early discovery completion cancels silent RPC requests (2009.372281ms)
+  AssertionError [ERR_ASSERTION]: only the two initial concurrent silent requests; no retries after completion
+  
+  6 !== 2
+  
+      at TestContext.<anonymous> (/project/test/query-frontier.test.js:136:12)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 6,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

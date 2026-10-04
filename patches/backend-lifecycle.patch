@@ -1,0 +1,128 @@
+--- a/components/libuv-esp32/src/internal.h
++++ b/components/libuv-esp32/src/internal.h
+@@ -24,7 +24,7 @@
+   h->next_closing = NULL;
+   h->data = NULL;
+   uv__queue_insert_tail(&loop->handle_queue, &h->handle_queue);
+-  loop->active_handles++;  /* REF'd by default */
++  /* Initialized handles are inactive; count only active, referenced handles. */
+ }
+ 
+ static inline void uv__handle_start(uv_handle_t* h) {
+--- a/components/libuv-esp32/src/internal.h
++++ b/components/libuv-esp32/src/internal.h
+@@ -31,7 +31,7 @@
+   if (!(h->flags & UV_HANDLE_ACTIVE)) {
+     h->flags |= UV_HANDLE_ACTIVE;
+     if (h->flags & UV_HANDLE_REF) {
+-      /* already counted in active_handles from init */
++      h->loop->active_handles++;
+     }
+   }
+ }
+--- a/components/libuv-esp32/src/internal.h
++++ b/components/libuv-esp32/src/internal.h
+@@ -39,6 +39,7 @@
+ static inline void uv__handle_stop(uv_handle_t* h) {
+   if (h->flags & UV_HANDLE_ACTIVE) {
+     h->flags &= ~UV_HANDLE_ACTIVE;
++    if (h->flags & UV_HANDLE_REF) h->loop->active_handles--;
+   }
+ }
+ 
+--- a/include/hyperdht/dht.hpp
++++ b/include/hyperdht/dht.hpp
+@@ -47,6 +47,7 @@
+ #include "hyperdht/socket_pool.hpp"
+ 
+ namespace hyperdht {
++struct ConnState;
+ 
+ // ---------------------------------------------------------------------------
+ // JS-default constants exposed so tests and callers can reference the
+--- a/include/hyperdht/dht.hpp
++++ b/include/hyperdht/dht.hpp
+@@ -1019,6 +1019,8 @@
+     }
+ 
+ private:
++    void cancel_pending_connects();
++    std::vector<std::weak_ptr<ConnState>> pending_connects_;
+     uv_loop_t* loop_;
+     DhtOptions opts_;
+     std::unique_ptr<rpc::RpcSocket> socket_;
+--- a/src/connect.cpp
++++ b/src/connect.cpp
+@@ -447,7 +447,10 @@
+                            ConnectCallback on_done) {
+ 
+ 
++    pending_connects_.erase(std::remove_if(pending_connects_.begin(), pending_connects_.end(),
++        [](const auto& entry) { return entry.expired(); }), pending_connects_.end());
+     auto state = std::make_shared<ConnState>();
++    pending_connects_.push_back(state);
+     state->remote_pk = remote_pk;
+     state->keypair = keypair;
+     state->on_done = std::move(on_done);
+--- a/src/connect.cpp
++++ b/src/connect.cpp
+@@ -213,6 +213,24 @@
+         }
+     }
+ };
++
++// Cancel before RpcSocket is closed, so queries and raw streams can release
++// their references while the loop and socket remain valid.
++void HyperDHT::cancel_pending_connects() {
++    auto pending = std::move(pending_connects_);
++    for (auto& entry : pending) {
++        auto state = entry.lock();
++        if (!state || state->completed) continue;
++        state->complete(-1);
++        auto query = std::move(state->query);
++        if (query) query->destroy();
++        state->passive_timer.reset();
++        if (state->relay && state->relay->duplex) state->relay->duplex->destroy(0);
++        state->relay.reset();
++        udx::destroy_stream_once(state->raw_stream);
++        state->raw_stream = nullptr;
++    }
++}
+ 
+ // Forward declarations for helper functions extracted from do_connect.
+ // See definitions below.
+--- a/src/dht.cpp
++++ b/src/dht.cpp
+@@ -802,6 +802,7 @@
+     }
+     destroyed_ = true;
+     *alive_ = false;
++    cancel_pending_connects();
+ 
+     // §2: drop strong references to any outstanding background queries
+     // BEFORE closing the socket. The queries hold `rpc::RpcSocket&`
+--- a/include/hyperdht/hyperdht.h
++++ b/include/hyperdht/hyperdht.h
+@@ -647,6 +647,9 @@
+  */
+ HYPERDHT_API void hyperdht_stream_close(hyperdht_stream_t* stream);
+ 
++/* Local client binding extension: abort without waiting for peer FIN. */
++HYPERDHT_API void hyperdht_stream_destroy(hyperdht_stream_t* stream);
++
+ /**
+  * Check if the stream has completed the header exchange and is ready.
+  */
+--- a/src/ffi_stream.cpp
++++ b/src/ffi_stream.cpp
+@@ -239,6 +239,10 @@
+     stream->duplex->end();
+ }
+ 
++void hyperdht_stream_destroy(hyperdht_stream_t* stream) {
++    if (stream && !stream->closed && stream->duplex) stream->duplex->destroy(0);
++}
++
+ int hyperdht_stream_is_open(const hyperdht_stream_t* stream) {
+     if (!stream || !stream->duplex) return 0;
+     return stream->duplex->is_connected() ? 1 : 0;

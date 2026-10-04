@@ -1,0 +1,20 @@
+--- a/src/connect.cpp
++++ b/src/connect.cpp
+@@ -367,7 +367,7 @@
+             state->hs_result = hs;
+             // Stop the findPeer query — no more contestants needed.
+             // JS connect.js:354 break-out equivalent.
+-            if (state->query) state->query.reset();
++            if (auto query = std::move(state->query)) query->destroy();
+             state->pending_relays.clear();
+             on_handshake_success(state, hs);
+         }, state->handshake_request);
+@@ -430,7 +430,7 @@
+             // mappings, none of which match what the server's puncher
+             // probes back to.
+             if (state->hs_result.success) {
+-                if (state->query) state->query.reset();
++                if (auto query = std::move(state->query)) query->destroy();
+                 return;
+             }
+             if (!reply.value.has_value() || reply.value->empty()) return;

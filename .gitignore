@@ -1,0 +1,43 @@
+# Fetched dependencies and generated output
+/deps/
+/node_modules/
+/build/
+/dist/
+/out/
+/out-*/
+/artifacts/
+*.bin
+*.elf
+*.map
+*.tgz
+*.tar.gz
+/sdkconfig
+/sdkconfig.old
+
+# Local credentials and device configuration
+.env
+.env.*
+!.env.example
+config.local.*
+wifi.local.*
+hyperdht-wifi.json
+*.pem
+*.key
+
+# Tool state and caches
+/.idea/
+/.vscode/
+/.agents/
+/.codex/
+/.aws/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Runtime logs; retain the curated cross-build validation record
+*.log
+!/docs/c6-build.log

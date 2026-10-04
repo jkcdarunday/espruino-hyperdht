@@ -1,0 +1,47 @@
+esptool v5.3.1
+Image size: 1538768 bytes
+
+ESP32-C6 Image Header
+=====================
+Image version: 1
+Entry point: 0x408003d2
+Segments: 6
+Flash size: 4MB
+Flash freq: 80m
+Flash mode: DIO
+
+ESP32-C6 Extended Image Header
+==============================
+WP pin: 0xee (disabled)
+Flash pins drive settings: clk_drv: 0x0, q_drv: 0x0, d_drv: 0x0, cs0_drv: 0x0, hd_drv: 0x0, wp_drv: 0x0
+Chip ID: 13 (ESP32-C6)
+Minimal chip revision: v0.0, (legacy min_rev = 0)
+Maximal chip revision: v0.99
+
+Segments Information
+====================
+Segment   Length   Load addr   File offs  Memory types
+-------  -------  ----------  ----------  ------------
+      0  0x361d0  0x42130020  0x00000018  DROM, IROM
+      1  0x09e20  0x40800000  0x000361f0  DRAM, BYTE_ACCESSIBLE, IRAM
+      2  0x1200f8  0x42000020  0x00040018  DROM, IROM
+      3  0x14164  0x40809e20  0x00160118  DRAM, BYTE_ACCESSIBLE, IRAM
+      4  0x037ac  0x4081df90  0x00174284  DRAM, BYTE_ACCESSIBLE, IRAM
+      5  0x00064  0x50000000  0x00177a38  RTC_IRAM, RTC_DRAM
+
+ESP32-C6 Image Footer
+=====================
+Checksum: 0x4c (valid)
+Validation hash: c1e51c6b97e5e6092adde2cc1e4ce3828f7c8571f77770cff253ce7df6ce371f (valid)
+
+Application Information
+=======================
+Project name: espruino
+App version: ffd2b77
+Compile time: Oct  4 2026 16:56:00
+ELF file SHA256: cfd90c67960450759a2b644f15494742ed9605aa71535186b5b085f7b02ff221
+ESP-IDF: v5.5
+Minimal eFuse block revision: 0.0
+Maximal eFuse block revision: 0.99
+MMU page size: 64 KB
+Secure version: 0
