@@ -99,9 +99,8 @@ Replace `PORT` with your board's serial device. Back up existing flash first;
 the image replaces the partition layout. The JavaScript module/application
 is uploaded separately after flashing; see the examples below.
 
-The separate `espruino-hyperdht-source-and-debug-...` artifact contains the
-patched pinned sources, rebuild/relink recipe, license notices, configuration,
-checksums and ELF/map files. Download it when you need those materials.
+Source, dependency revisions, patches and build instructions are maintained in
+this Git repository. The workflow uploads no source or debug archives.
 Artifacts are retained for 30 days; the workflow does not publish GitHub
 Releases or claim production readiness.
 
@@ -134,8 +133,7 @@ docker buildx build --build-arg HYPERDHT_CHIP=s3 --output type=local,dest=out-s3
 
 The output includes `merged-binary.bin`, app/bootloader/partition binaries,
 `espruino.elf`, `espruino.map`, `flash_args`, build configuration, source/component
-version records and `SHA256SUMS`. C6 builds also produce downloadable firmware
-and source archives under `out/distribution/`. Follow `out/FLASH.txt` to flash; offsets come
+version records and `SHA256SUMS`. Follow `out/FLASH.txt` to flash; offsets come
 from IDF, not hardcoded assumptions. Sensor JS is uploaded separately after
 flashing, using `dist/sensor-client.js`; credentials are not embedded in firmware.
 
@@ -338,6 +336,6 @@ until physical hardware passes those checks.
 ## Sources and licensing
 
 Exact source revisions are in `dependencies.json`; npm dependencies are locked.
-Upstream code is fetched on build, not hidden inside this source archive.
+Upstream code is fetched on build, not vendored in this Git repository.
 See `THIRD_PARTY.md` and `patches/README.md`. The original code in this project
 is MIT-licensed; third-party licenses apply independently.

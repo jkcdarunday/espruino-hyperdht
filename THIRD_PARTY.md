@@ -18,7 +18,8 @@ any binary redistribution must also address the backend's LGPL requirements,
 including the required ability to relink with a modified library.
 
 The Git repository does not vendor third-party libraries or include generated
-native executables, WiFi credentials or private keys. CI distributables include
-firmware plus a separate source archive containing the patched pinned libraries
-and the build recipe. Firmware archives include third-party license notices. The included npm lockfile records
-additional transitive reference-peer dependencies.
+native executables, WiFi credentials or private keys. CI publishes only the
+merged firmware binary. Source revisions, patches, notices and the build/relink
+recipe are maintained here; upstream LICENSE/NOTICE files are available in the
+pinned sources fetched by `scripts/fetch-deps.py`. The included npm lockfile
+records additional transitive reference-peer dependencies.

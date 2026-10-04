@@ -25,22 +25,17 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Check packaging and privacy
+      - name: Check exporter and privacy
         run: |
           python3 scripts/check-repository-privacy.py
           python3 test/export-firmware.test.py
-          python3 test/package-distribution.test.py
 
-      - name: Build and package firmware
-        env:
-          SOURCE_REVISION: ${{ github.sha }}
+      - name: Build firmware
         run: |
           docker buildx build --progress=plain \
             --build-arg HYPERDHT_CHIP=c6 \
-            --build-arg SOURCE_REVISION="$SOURCE_REVISION" \
             --output type=local,dest=out .
           (cd out && sha256sum -c SHA256SUMS)
-          (cd out/distribution && sha256sum -c SHA256SUMS)
 
       - name: Upload flashable binary
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -50,12 +45,3 @@ jobs:
           if-no-files-found: error
           retention-days: 30
           compression-level: 9
-
-      - name: Upload source, notices and debug files separately
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        with:
-          name: espruino-hyperdht-source-and-debug-${{ github.sha }}
-          path: out/distribution/
-          if-no-files-found: error
-          retention-days: 30
-          compression-level: 0
