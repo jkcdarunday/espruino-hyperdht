@@ -16,7 +16,7 @@ test at test/query-frontier.test.js:98:1
   
   6 !== 2
   
-      at TestContext.<anonymous> (/project/test/query-frontier.test.js:136:12)
+      at TestContext.<anonymous> (/workspace/espruino-hyperdht/test/query-frontier.test.js:136:12)
       at async Test.run (node:internal/test_runner/test:1208:7)
       at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
     generatedMessage: false,

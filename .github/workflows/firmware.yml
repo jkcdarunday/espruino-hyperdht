@@ -1,0 +1,51 @@
+name: Build ESP32-C6 distributable
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*', 'snapshot-*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firmware-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  c6:
+    name: Experimental C6 / 4 MB
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Check firmware exporter
+        run: |
+          python3 test/export-firmware.test.py
+          python3 test/package-distribution.test.py
+
+      - name: Build and package firmware
+        env:
+          SOURCE_REVISION: ${{ github.sha }}
+        run: |
+          docker buildx build --progress=plain \
+            --build-arg HYPERDHT_CHIP=c6 \
+            --build-arg SOURCE_REVISION="$SOURCE_REVISION" \
+            --output type=local,dest=out .
+          cd out/distribution
+          sha256sum -c SHA256SUMS
+
+      - name: Upload distributable
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: espruino-hyperdht-esp32c6-4mb-experimental-${{ github.sha }}
+          path: out/distribution/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0

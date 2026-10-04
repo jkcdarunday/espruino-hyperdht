@@ -17,6 +17,8 @@ combined source or firmware. The complete source-build recipe is included;
 any binary redistribution must also address the backend's LGPL requirements,
 including the required ability to relink with a modified library.
 
-This source archive does not bundle third-party libraries, generated native
-executables, WiFi credentials or private keys. The included npm lockfile records
+The Git repository does not vendor third-party libraries or include generated
+native executables, WiFi credentials or private keys. CI distributables include
+firmware plus a separate source archive containing the patched pinned libraries
+and the build recipe. Firmware archives include third-party license notices. The included npm lockfile records
 additional transitive reference-peer dependencies.

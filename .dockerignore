@@ -13,3 +13,13 @@ artifacts
 *.log
 .env
 .env.*
+.idea
+.vscode
+.agents
+.codex
+.aws
+config.local.*
+wifi.local.*
+hyperdht-wifi.json
+*.pem
+*.key

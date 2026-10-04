@@ -80,6 +80,27 @@ git clone git@github.com:jkcdarunday/espruino-hyperdht.git
 cd espruino-hyperdht
 ```
 
+## Download an experimental C6 build
+
+The [firmware workflow](https://github.com/jkcdarunday/espruino-hyperdht/actions/workflows/firmware.yml)
+builds on pushes to `main`, pull requests and version/snapshot tags. It can also
+be started with **Run workflow** in GitHub Actions. Open a successful run and
+download its `espruino-hyperdht-esp32c6-4mb-experimental-...` artifact.
+
+The download contains firmware and source `.tar.gz` archives plus checksums.
+Extract the firmware archive, verify `sha256sum -c SHA256SUMS` from its root,
+and follow `FLASH.txt`. It includes the merged image, individual flash segments,
+ELF/map files, configuration, project commit, JavaScript module/examples and
+license notices. The source archive includes the patched pinned dependencies
+and build recipe for rebuilding/relinking. Artifacts are retained for 30 days;
+the workflow does not publish GitHub Releases or claim production readiness.
+
+This profile requires an ESP32-C6 with at least 4 MB flash, uses a 4 MB partition
+layout and DIO flash at 80 MHz, and does not require PSRAM. Other C6 boards are
+candidates for testing, not universally validated hardware. Read the included
+release blockers before deploying unattended. Wi-Fi credentials are provisioned
+separately and are not included in CI builds.
+
 ## Build the complete firmware with Docker
 
 From this project's root directory, with Docker Buildx installed:
@@ -103,7 +124,8 @@ docker buildx build --build-arg HYPERDHT_CHIP=s3 --output type=local,dest=out-s3
 
 The output includes `merged-binary.bin`, app/bootloader/partition binaries,
 `espruino.elf`, `espruino.map`, `flash_args`, build configuration, source/component
-version records and `SHA256SUMS`. Follow `out/FLASH.txt` to flash; offsets come
+version records and `SHA256SUMS`. C6 builds also produce downloadable firmware
+and source archives under `out/distribution/`. Follow `out/FLASH.txt` to flash; offsets come
 from IDF, not hardcoded assumptions. Sensor JS is uploaded separately after
 flashing, using `dist/sensor-client.js`; credentials are not embedded in firmware.
 

@@ -17,6 +17,8 @@ COPY scripts/fetch-deps.py ./scripts/fetch-deps.py
 RUN python3 -c 'import tarfile; assert hasattr(tarfile, "data_filter"), "Python with tarfile data filter required"' \
     && python3 scripts/fetch-deps.py
 COPY . .
+ARG SOURCE_REVISION=local
+ENV SOURCE_REVISION=${SOURCE_REVISION}
 ARG HYPERDHT_CHIP=c6
 ENV HYPERDHT_CHIP=${HYPERDHT_CHIP}
 # Docker RUN does not invoke the base image ENTRYPOINT. Activate IDF explicitly.

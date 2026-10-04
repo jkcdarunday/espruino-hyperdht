@@ -2,7 +2,7 @@
 
 Hardware: ESP32-C6FH4 revision v0.2, embedded 4 MB flash, no PSRAM,
 USB serial/JTAG on `/dev/ttyACM1`. The original full flash was backed up in
-`out/board-backup-REDACTED_DEVICE-20261004.bin` before flashing.
+`out/board-backup-REDACTED-20261004.bin` before flashing.
 
 The current firmware built with Docker, ESP-IDF 5.5 and component manager
 2.2.2. Esptool 5.3.1 flashed and verified the bootloader, partition table and
