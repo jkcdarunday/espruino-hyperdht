@@ -87,13 +87,23 @@ builds on pushes to `main`, pull requests and version/snapshot tags. It can also
 be started with **Run workflow** in GitHub Actions. Open a successful run and
 download its `espruino-hyperdht-esp32c6-4mb-experimental-...` artifact.
 
-The download contains firmware and source `.tar.gz` archives plus checksums.
-Extract the firmware archive, verify `sha256sum -c SHA256SUMS` from its root,
-and follow `FLASH.txt`. It includes the merged image, individual flash segments,
-ELF/map files, configuration, project commit, JavaScript module/examples and
-license notices. The source archive includes the patched pinned dependencies
-and build recipe for rebuilding/relinking. Artifacts are retained for 30 days;
-the workflow does not publish GitHub Releases or claim production readiness.
+The main artifact contains **only `merged-binary.bin`**, approximately 1.6 MB
+before ZIP compression. It includes the bootloader, partition table and
+application. Extract GitHub's ZIP and flash the binary at address `0x0`:
+
+```sh
+python -m esptool --chip esp32c6 --port PORT write_flash 0x0 merged-binary.bin
+```
+
+Replace `PORT` with your board's serial device. Back up existing flash first;
+the image replaces the partition layout. The JavaScript module/application
+is uploaded separately after flashing; see the examples below.
+
+The separate `espruino-hyperdht-source-and-debug-...` artifact contains the
+patched pinned sources, rebuild/relink recipe, license notices, configuration,
+checksums and ELF/map files. Download it when you need those materials.
+Artifacts are retained for 30 days; the workflow does not publish GitHub
+Releases or claim production readiness.
 
 This profile requires an ESP32-C6 with at least 4 MB flash, uses a 4 MB partition
 layout and DIO flash at 80 MHz, and does not require PSRAM. Other C6 boards are

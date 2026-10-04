@@ -39,13 +39,22 @@ jobs:
             --build-arg HYPERDHT_CHIP=c6 \
             --build-arg SOURCE_REVISION="$SOURCE_REVISION" \
             --output type=local,dest=out .
-          cd out/distribution
-          sha256sum -c SHA256SUMS
+          (cd out && sha256sum -c SHA256SUMS)
+          (cd out/distribution && sha256sum -c SHA256SUMS)
 
-      - name: Upload distributable
+      - name: Upload flashable binary
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: espruino-hyperdht-esp32c6-4mb-experimental-${{ github.sha }}
+          path: out/merged-binary.bin
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 9
+
+      - name: Upload source, notices and debug files separately
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: espruino-hyperdht-source-and-debug-${{ github.sha }}
           path: out/distribution/
           if-no-files-found: error
           retention-days: 30
