@@ -5,6 +5,9 @@ by its HyperDHT public key, performs the Noise handshake, and sends/receives
 bytes over the encrypted UDX stream. There is **no Node.js gateway** between the
 ESP32 and its peer. The remote peer uses the original `hyperdht` npm package.
 
+**Readiness:** development snapshot for controlled pilots; not production-ready.
+See [release blockers](docs/RELEASE-BLOCKERS.md) before deploying unattended.
+
 **Status:** server mode is host-tested against original HyperDHT, using the
 actual Espruino interpreter and ESP32 libuv shim. This revision now builds in
 Docker and boots on a physical ESP32-C6 with the native module available.
@@ -67,6 +70,13 @@ Use `examples/esp32-server.js` for bounded, newline-framed commands and
 `socket.close()` permits the next inbound connection; `node.destroy()` stops
 the listener too. Client mode and listening are mutually exclusive on a node.
 The controller must wait for each reply before sending another command.
+
+## Get the source
+
+```sh
+git clone git@github.com:jkcdarunday/espruino-hyperdht.git
+cd espruino-hyperdht
+```
 
 ## Build the complete firmware with Docker
 

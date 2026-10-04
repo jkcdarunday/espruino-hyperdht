@@ -71,3 +71,23 @@ layout. The DNS callback copies its IPv4 value to a local scalar before passing
 it to Espruino's non-const formatting API. This removes the nearby discarded-const
 warning without casting away const from lwIP's address. Both changes retain
 Espruino's MPL-2.0 license. Existing IPv4 endpoint behavior is unchanged.
+
+## Discovery and connection fixes in this snapshot
+
+The backend patches are applied in the order declared by
+`scripts/apply-patches.py`. Each applied patch records its content hash; use a
+fresh dependency checkout when editing a patch already applied locally.
+
+| Patch | Purpose |
+| --- | --- |
+| `server-mode.patch` | Expose the bounded single-connection server binding and admission controls. |
+| `server-readiness.patch` | Emit listening only after acknowledged initial announcements. |
+| `query-frontier.patch` | Reject irrelevant referrals before they consume the bounded discovery budget. |
+| `shared-handshake.patch` | Reuse one Noise initiator request across relay attempts. |
+| `query-internal.patch` | Preserve FIND_NODE's internal routing-query wire namespace. |
+| `query-cancel.patch` | Cancel unfinished RPC walk requests when discovery completes. |
+| `connect-query-stop.patch` | Stop discovery after a successful handshake, releasing its frontier sooner. |
+
+Before/after regression evidence is retained in `docs/`. These fixes retain
+the upstream files' licenses and remain local patches. Passing interoperability
+tests does not establish production readiness; see `docs/RELEASE-BLOCKERS.md`.

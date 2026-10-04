@@ -1,0 +1,5 @@
+ESP32 libuv adapter, Linux reproduction, 2026-10-05
+Operation: queue uv_udp_send, close its socket before dispatch, run loop.
+Expected: one send callback with cancellation, followed by one close callback.
+Observed: queued=0 send_callbacks=0 close_callbacks=1 pending_sends=1
+Result: FAIL; production blocker remains unfixed in this snapshot.

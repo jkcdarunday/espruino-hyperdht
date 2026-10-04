@@ -165,7 +165,9 @@ twenty consecutive public encrypted echoes, each checking all 256 byte values
 in a 1,024-byte payload. Wi-Fi power saving returned to its original mode.
 After the final handshake cleanup, the repeated twenty-connection run kept
 149,844–162,588 bytes free at echo callbacks and returned to 196,260 bytes
-after teardown. See `out/c6-production-public-twenty.log`. This is a bounded acceptance run,
+after teardown. The filtered publishable record is
+[`test-results-c6-public.txt`](test-results-c6-public.txt); the complete local log
+is `out/c6-production-public-twenty.log`. This is a bounded acceptance run,
 not evidence of long-duration stability or all possible NAT pairings.
 
 The current host suite passes 19 tests, including twenty firewalled-peer
